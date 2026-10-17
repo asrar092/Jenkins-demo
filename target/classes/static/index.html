@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time Tracker</title>
+<style>
+:root{font-family:Inter,Segoe UI,Arial,sans-serif;color:#172033;background:#f3f6fb}
+*{box-sizing:border-box}body{margin:0}.top{background:linear-gradient(120deg,#14213d,#3157a4);color:white;padding:30px 20px 64px}
+.wrap{max-width:1000px;margin:auto}.brand{font-size:14px;letter-spacing:2px;text-transform:uppercase;opacity:.8}.top h1{margin:12px 0 8px;font-size:clamp(30px,5vw,44px)}.top p{margin:0;color:#dce6ff}
+main{max-width:1000px;margin:-38px auto 40px;padding:0 20px}.panel{background:white;border-radius:18px;padding:24px;box-shadow:0 12px 36px #1b2d5012;margin-bottom:20px}
+.greeting{font-size:24px;font-weight:750;margin:0 0 8px}.sub{color:#6a7488;margin:0 0 22px}
+form{display:flex;gap:12px;flex-wrap:wrap}input{flex:1;min-width:200px;border:1px solid #d7deea;border-radius:10px;padding:14px;font-size:15px}
+button{border:0;border-radius:10px;padding:13px 18px;font-weight:700;cursor:pointer;background:#3157a4;color:white}button:disabled{opacity:.5;cursor:not-allowed}.stop{background:#fff0ee;color:#b42318;padding:9px 13px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px}.stat{background:#f6f8fc;border-radius:12px;padding:16px}.stat span{display:block;color:#6a7488;font-size:13px}.stat strong{display:block;font-size:24px;margin-top:7px}
+.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:560px}th,td{text-align:left;padding:14px 10px;border-bottom:1px solid #edf0f5;font-size:14px}th{color:#68748a;font-weight:600}.status{display:inline-block;background:#e5f7ec;color:#14733d;padding:5px 9px;border-radius:99px;font-size:12px;font-weight:700}.status.done{background:#edf0f5;color:#596579}.empty{text-align:center;color:#7a8496;padding:30px 10px}.notice{margin-top:14px;color:#b42318;font-size:14px;min-height:18px}
+@media(max-width:600px){.stats{grid-template-columns:1fr}.panel{padding:18px}.top{padding-bottom:56px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap"><div class="brand">Student productivity</div><h1>Time Tracker</h1><p>Track your work sessions. Make every minute count.</p></div></header>
+<main>
+<section class="panel">
+  <p class="greeting">Good Night Students!!! 🌙</p>
+  <p class="sub">Start a session when you begin a task, then stop it when you're done.</p>
+  <div class="stats">
+    <div class="stat"><span>Sessions recorded</span><strong id="count">0</strong></div>
+    <div class="stat"><span>Total time tracked</span><strong id="total">0m</strong></div>
+    <div class="stat"><span>Current status</span><strong id="status">Not working</strong></div>
+  </div>
+  <form id="startForm"><input id="task" maxlength="120" placeholder="What are you working on?" aria-label="Task name" required><button id="startBtn" type="submit">▶ Start Work</button></form>
+  <div class="notice" id="notice" role="status"></div>
+</section>
+<section class="panel"><h2 style="margin:0 0 18px">Work sessions</h2><div class="table-wrap">
+<table><thead><tr><th>Task</th><th>Started</th><th>Finished</th><th>Duration</th><th>Status / Action</th></tr></thead>
+<tbody id="sessions"><tr><td colspan="5" class="empty">No sessions yet. Start your first task above.</td></tr></tbody></table>
+</div></section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+function duration(seconds){const h=Math.floor(seconds/3600),m=Math.floor(seconds%3600/60),s=seconds%60;return h?`${h}h ${m}m`:m?`${m}m ${s}s`:`${s}s`;}
+async function api(url,options={}){const r=await fetch(url,{headers:{'Content-Type':'application/json'},...options});let data={};try{data=await r.json()}catch{}if(!r.ok)throw new Error(data.message||'Something went wrong.');return data;}
+async function refresh(){
+ const sessions=await api('/api/sessions');$('count').textContent=sessions.length;
+ const total=sessions.reduce((n,s)=>n+s.durationSeconds,0);$('total').textContent=duration(total);
+ const active=sessions.find(s=>s.running);$('status').textContent=active?'Working':'Not working';$('startBtn').disabled=!!active;
+ $('sessions').innerHTML='';
+ if(!sessions.length){$('sessions').innerHTML='<tr><td colspan="5" class="empty">No sessions yet. Start your first task above.</td></tr>';return;}
+ sessions.forEach(s=>{const tr=document.createElement('tr');
+ const values=[s.task,s.startDisplay,s.endDisplay,duration(s.durationSeconds)];
+ values.forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.appendChild(td)});
+ const action=document.createElement('td');
+ if(s.running){const b=document.createElement('button');b.className='stop';b.textContent='■ Stop';b.onclick=async()=>{try{await api('/api/stop/'+s.id,{method:'POST'});$('notice').textContent='';await refresh()}catch(e){$('notice').textContent=e.message}};action.appendChild(b)}
+ else{const badge=document.createElement('span');badge.className='status done';badge.textContent='Completed';action.appendChild(badge)}
+ tr.appendChild(action);$('sessions').appendChild(tr);
+ });
+}
+$('startForm').addEventListener('submit',async e=>{e.preventDefault();$('notice').textContent='';try{await api('/api/start',{method:'POST',body:JSON.stringify({task:$('task').value})});$('task').value='';await refresh()}catch(err){$('notice').textContent=err.message}});
+refresh().catch(e=>$('notice').textContent=e.message);
+setInterval(()=>refresh().catch(()=>{}),15000);
+</script>
+</body></html>
