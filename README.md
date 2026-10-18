@@ -13,7 +13,7 @@ A small Spring Boot web application for recording work sessions. It includes a d
    ```powershell
    mvn spring-boot:run
    ```
-4. Open http://localhost:8080 in your browser.
+4. Open http://localhost:8081 in your browser.
 
 If Maven is not installed, open the folder in IntelliJ IDEA or Eclipse as an existing Maven project and run `TimeTrackerApplication.java`.
 
